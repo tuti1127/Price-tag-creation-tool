@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>受注管理 - メルカリShops</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    background: #f5f5f0;
+    color: #333;
+    min-height: 100vh;
+  }
+  header {
+    background: #3a7d44;
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  header h1 { font-size: 1.3rem; font-weight: bold; }
+  header .date { font-size: 0.85rem; opacity: 0.85; }
+
+  .toolbar {
+    padding: 12px 24px;
+    background: white;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  .btn-primary { background: #3a7d44; color: white; }
+  .btn-primary:hover { background: #2e6336; }
+  .btn-secondary { background: #e8f5e9; color: #3a7d44; border: 1px solid #a5d6a7; }
+  .btn-secondary:hover { background: #c8e6c9; }
+  .btn-danger { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+  .btn-danger:hover { background: #ffcdd2; }
+  .btn-print { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+  .btn-print:hover { background: #bbdefb; }
+
+  .summary {
+    display: flex;
+    gap: 12px;
+    padding: 12px 24px;
+    flex-wrap: wrap;
+  }
+  .summary-card {
+    background: white;
+    border-radius: 8px;
+    padding: 10px 18px;
+    border-left: 4px solid #ccc;
+    min-width: 120px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .summary-card .count { font-size: 1.6rem; font-weight: bold; }
+  .summary-card .label { font-size: 0.75rem; color: #666; margin-top: 2px; }
+  .card-unsent { border-color: #ef5350; }
+  .card-packing { border-color: #ff9800; }
+  .card-shipped { border-color: #42a5f5; }
+  .card-done { border-color: #66bb6a; }
+  .card-total { border-color: #9e9e9e; }
+
+  /* フォーム */
+  .form-area {
+    background: white;
+    margin: 16px 24px;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+  .form-header {
+    background: #e8f5e9;
+    padding: 12px 20px;
+    font-weight: bold;
+    font-size: 0.95rem;
+    color: #2e7d32;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .form-body {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .form-body.hidden { display: none; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 0.82rem; color: #555; font-weight: 600; }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: #3a7d44; }
+  .form-actions {
+    padding: 0 20px 20px;
+    display: flex;
+    gap: 10px;
+  }
+
+  /* テーブル */
+  .table-area {
+    margin: 0 24px 24px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+  .table-area table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  .table-area thead th {
+    background: #3a7d44;
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .table-area tbody tr { border-bottom: 1px solid #eee; transition: background 0.1s; }
+  .table-area tbody tr:hover { background: #f9f9f7 !important; }
+  .table-area tbody td { padding: 9px 12px; vertical-align: middle; }
+
+  /* ハイライト */
+  tr.highlight-red td:first-child::before { content: '!'; color: #c62828; font-weight: bold; margin-right: 4px; }
+  tr.highlight-red { background: #fff5f5 !important; }
+  tr.highlight-red .deadline-cell { color: #c62828; font-weight: bold; }
+  tr.highlight-yellow { background: #fffde7 !important; }
+  tr.highlight-yellow .deadline-cell { color: #e65100; font-weight: bold; }
+  tr.done-row { opacity: 0.55; }
+
+  /* ステータスバッジ */
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .badge-unsent { background: #ffebee; color: #c62828; }
+  .badge-packing { background: #fff3e0; color: #e65100; }
+  .badge-shipped { background: #e3f2fd; color: #1565c0; }
+  .badge-done { background: #e8f5e9; color: #2e7d32; }
+
+  .action-btns { display: flex; gap: 5px; flex-wrap: wrap; }
+  .action-btns button { padding: 4px 10px; font-size: 0.78rem; }
+
+  .empty-msg {
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+    font-size: 0.95rem;
+  }
+
+  /* フィルタ */
+  .filter-area {
+    padding: 10px 24px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-area label { font-size: 0.85rem; color: #555; }
+  .filter-area select, .filter-area input {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: inherit;
+  }
+
+  @media print {
+    header, .toolbar, .form-area, .filter-area, .action-btns { display: none !important; }
+    body { background: white; }
+    .table-area { margin: 0; box-shadow: none; border-radius: 0; }
+    .summary { padding: 8px 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>受注管理 - メルカリShops</h1>
+  <span class="date" id="todayDisplay"></span>
+</header>
+
+<div class="summary" id="summaryArea"></div>
+
+<div class="toolbar">
+  <button class="btn-primary" onclick="toggleForm()">+ 新規受注を追加</button>
+  <button class="btn-secondary" onclick="exportCSV()">CSVエクスポート</button>
+  <button class="btn-print" onclick="window.print()">印刷</button>
+  <button class="btn-danger" onclick="clearAllConfirm()">全件削除</button>
+</div>
+
+<div class="form-area" id="formArea" style="display:none">
+  <div class="form-header" onclick="toggleForm()">
+    <span id="formTitle">新規受注を追加</span>
+    <span>▲ 閉じる</span>
+  </div>
+  <div class="form-body" id="formBody">
+    <div class="form-group">
+      <label>注文日 *</label>
+      <input type="date" id="f-orderDate">
+    </div>
+    <div class="form-group">
+      <label>商品名 *</label>
+      <input type="text" id="f-productName" placeholder="例: モンステラ 4号">
+    </div>
+    <div class="form-group">
+      <label>購入者名（任意）</label>
+      <input type="text" id="f-buyerName" placeholder="例: 山田様">
+    </div>
+    <div class="form-group">
+      <label>発送期限 *</label>
+      <input type="date" id="f-deadline">
+    </div>
+    <div class="form-group">
+      <label>状態</label>
+      <select id="f-status">
+        <option value="unsent">未発送</option>
+        <option value="packing">梱包中</option>
+        <option value="shipped">発送済み</option>
+        <option value="done">完了</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>メモ（任意）</label>
+      <input type="text" id="f-memo" placeholder="例: 割れ物注意">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="btn-primary" id="submitBtn" onclick="submitOrder()">登録する</button>
+    <button class="btn-secondary" onclick="cancelEdit()">キャンセル</button>
+  </div>
+</div>
+
+<div class="filter-area">
+  <label>絞り込み:</label>
+  <select id="filterStatus" onchange="render()">
+    <option value="">すべて</option>
+    <option value="unsent">未発送</option>
+    <option value="packing">梱包中</option>
+    <option value="shipped">発送済み</option>
+    <option value="done">完了</option>
+  </select>
+  <label>キーワード:</label>
+  <input type="text" id="filterKeyword" placeholder="商品名・購入者名" oninput="render()">
+</div>
+
+<div class="table-area">
+  <table>
+    <thead>
+      <tr>
+        <th>注文日</th>
+        <th>商品名</th>
+        <th>購入者名</th>
+        <th>発送期限</th>
+        <th>状態</th>
+        <th>メモ</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="orderTableBody">
+      <tr><td colspan="7" class="empty-msg">受注データがありません。「新規受注を追加」から登録してください。</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const STORAGE_KEY = 'merucari_orders_v1';
+let orders = [];
+let editingId = null;
+
+const STATUS_LABELS = {
+  unsent: '未発送',
+  packing: '梱包中',
+  shipped: '発送済み',
+  done: '完了'
+};
+const STATUS_BADGE = {
+  unsent: 'badge-unsent',
+  packing: 'badge-packing',
+  shipped: 'badge-shipped',
+  done: 'badge-done'
+};
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    orders = raw ? JSON.parse(raw) : [];
+  } catch(e) {
+    orders = [];
+  }
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysDiff(dateStr) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr);
+  d.setHours(0, 0, 0, 0);
+  return Math.round((d - now) / 86400000);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const [y, m, d] = dateStr.split('-');
+  return `${parseInt(m)}/${parseInt(d)}`;
+}
+
+function toggleForm() {
+  const area = document.getElementById('formArea');
+  const isHidden = area.style.display === 'none';
+  area.style.display = isHidden ? 'block' : 'none';
+  if (isHidden && !editingId) {
+    document.getElementById('f-orderDate').value = today();
+    // 発送期限デフォルト: 3日後
+    const dl = new Date();
+    dl.setDate(dl.getDate() + 3);
+    document.getElementById('f-deadline').value = dl.toISOString().slice(0, 10);
+    document.getElementById('f-productName').focus();
+  }
+}
+
+function cancelEdit() {
+  editingId = null;
+  document.getElementById('formTitle').textContent = '新規受注を追加';
+  document.getElementById('submitBtn').textContent = '登録する';
+  document.getElementById('formArea').style.display = 'none';
+  clearForm();
+}
+
+function clearForm() {
+  ['f-orderDate','f-productName','f-buyerName','f-deadline','f-memo'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f-status').value = 'unsent';
+}
+
+function submitOrder() {
+  const orderDate = document.getElementById('f-orderDate').value;
+  const productName = document.getElementById('f-productName').value.trim();
+  const buyerName = document.getElementById('f-buyerName').value.trim();
+  const deadline = document.getElementById('f-deadline').value;
+  const status = document.getElementById('f-status').value;
+  const memo = document.getElementById('f-memo').value.trim();
+
+  if (!orderDate) { alert('注文日を入力してください'); return; }
+  if (!productName) { alert('商品名を入力してください'); return; }
+  if (!deadline) { alert('発送期限を入力してください'); return; }
+
+  if (editingId) {
+    const idx = orders.findIndex(o => o.id === editingId);
+    if (idx >= 0) {
+      orders[idx] = { ...orders[idx], orderDate, productName, buyerName, deadline, status, memo };
+    }
+    editingId = null;
+    document.getElementById('formTitle').textContent = '新規受注を追加';
+    document.getElementById('submitBtn').textContent = '登録する';
+  } else {
+    orders.push({ id: genId(), orderDate, productName, buyerName, deadline, status, memo });
+  }
+
+  save();
+  clearForm();
+  document.getElementById('formArea').style.display = 'none';
+  render();
+}
+
+function editOrder(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  editingId = id;
+  document.getElementById('f-orderDate').value = o.orderDate;
+  document.getElementById('f-productName').value = o.productName;
+  document.getElementById('f-buyerName').value = o.buyerName || '';
+  document.getElementById('f-deadline').value = o.deadline;
+  document.getElementById('f-status').value = o.status;
+  document.getElementById('f-memo').value = o.memo || '';
+  document.getElementById('formTitle').textContent = '受注を編集';
+  document.getElementById('submitBtn').textContent = '更新する';
+  document.getElementById('formArea').style.display = 'block';
+  document.getElementById('f-productName').focus();
+  document.getElementById('formArea').scrollIntoView({ behavior: 'smooth' });
+}
+
+function deleteOrder(id) {
+  if (!confirm('この受注を削除しますか？')) return;
+  orders = orders.filter(o => o.id !== id);
+  save();
+  render();
+}
+
+function changeStatus(id, newStatus) {
+  const o = orders.find(x => x.id === id);
+  if (o) { o.status = newStatus; save(); render(); }
+}
+
+function clearAllConfirm() {
+  if (!confirm('全ての受注データを削除しますか？この操作は元に戻せません。')) return;
+  orders = [];
+  save();
+  render();
+}
+
+function exportCSV() {
+  if (orders.length === 0) { alert('データがありません'); return; }
+  const header = ['注文日', '商品名', '購入者名', '発送期限', '状態', 'メモ'];
+  const rows = orders.map(o => [
+    o.orderDate, o.productName, o.buyerName || '',
+    o.deadline, STATUS_LABELS[o.status] || o.status, o.memo || ''
+  ]);
+  const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `orders_${today()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function render() {
+  const filterStatus = document.getElementById('filterStatus').value;
+  const keyword = document.getElementById('filterKeyword').value.toLowerCase();
+
+  let filtered = orders.filter(o => {
+    if (filterStatus && o.status !== filterStatus) return false;
+    if (keyword) {
+      const hay = (o.productName + o.buyerName).toLowerCase();
+      if (!hay.includes(keyword)) return false;
+    }
+    return true;
+  });
+
+  // 発送期限昇順（完了は後ろ）
+  filtered.sort((a, b) => {
+    if (a.status === 'done' && b.status !== 'done') return 1;
+    if (a.status !== 'done' && b.status === 'done') return -1;
+    return a.deadline.localeCompare(b.deadline);
+  });
+
+  const tbody = document.getElementById('orderTableBody');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">該当する受注がありません。</td></tr>';
+    updateSummary();
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(o => {
+    const diff = daysDiff(o.deadline);
+    let rowClass = '';
+    if (o.status !== 'done' && o.status !== 'shipped') {
+      if (diff <= 0) rowClass = 'highlight-red';
+      else if (diff === 1) rowClass = 'highlight-yellow';
+    }
+    if (o.status === 'done') rowClass += ' done-row';
+
+    const deadlineLabel = diff < 0
+      ? `${formatDate(o.deadline)} (${Math.abs(diff)}日超過)`
+      : diff === 0
+      ? `${formatDate(o.deadline)} (今日)`
+      : diff === 1
+      ? `${formatDate(o.deadline)} (明日)`
+      : `${formatDate(o.deadline)} (${diff}日後)`;
+
+    const nextStatus = {
+      unsent: { val: 'packing', label: '梱包中へ' },
+      packing: { val: 'shipped', label: '発送済みへ' },
+      shipped: { val: 'done', label: '完了へ' },
+      done: null
+    }[o.status];
+
+    return `<tr class="${rowClass.trim()}">
+      <td>${formatDate(o.orderDate)}</td>
+      <td><strong>${escHtml(o.productName)}</strong></td>
+      <td>${escHtml(o.buyerName || '-')}</td>
+      <td class="deadline-cell">${deadlineLabel}</td>
+      <td><span class="badge ${STATUS_BADGE[o.status] || ''}">${STATUS_LABELS[o.status] || o.status}</span></td>
+      <td>${escHtml(o.memo || '-')}</td>
+      <td class="action-btns">
+        ${nextStatus ? `<button class="btn-secondary" onclick="changeStatus('${o.id}','${nextStatus.val}')">${nextStatus.label}</button>` : ''}
+        <button class="btn-secondary" onclick="editOrder('${o.id}')">編集</button>
+        <button class="btn-danger" onclick="deleteOrder('${o.id}')">削除</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  updateSummary();
+}
+
+function updateSummary() {
+  const counts = { unsent: 0, packing: 0, shipped: 0, done: 0 };
+  orders.forEach(o => { if (counts[o.status] !== undefined) counts[o.status]++; });
+  document.getElementById('summaryArea').innerHTML = `
+    <div class="summary-card card-total"><div class="count">${orders.length}</div><div class="label">全件</div></div>
+    <div class="summary-card card-unsent"><div class="count">${counts.unsent}</div><div class="label">未発送</div></div>
+    <div class="summary-card card-packing"><div class="count">${counts.packing}</div><div class="label">梱包中</div></div>
+    <div class="summary-card card-shipped"><div class="count">${counts.shipped}</div><div class="label">発送済み</div></div>
+    <div class="summary-card card-done"><div class="count">${counts.done}</div><div class="label">完了</div></div>
+  `;
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// 初期化
+load();
+const now = new Date();
+document.getElementById('todayDisplay').textContent =
+  `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${'日月火水木金土'[now.getDay()]}）`;
+render();
+</script>
+</body>
+</html>
